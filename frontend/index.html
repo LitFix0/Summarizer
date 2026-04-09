@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Summarizer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: #111;
+      border-radius: 14px;
+      border: 1px solid #2a2a2a;
+      padding: 28px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; color: #f0f0f0; }
+    .sub { font-size: 12px; color: #555; margin-bottom: 24px; }
+
+    label {
+      font-size: 10px; font-weight: 600; color: #444;
+      display: block; margin-bottom: 6px;
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #888;
+      background: #1a1a1a;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 14px;
+      appearance: none;
+    }
+    input::placeholder, textarea::placeholder { color: #444; }
+    input:focus, textarea:focus, select:focus { border-color: #6366f1; color: #ccc; }
+    textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+    .row { display: flex; gap: 10px; }
+    .row > div { flex: 1; }
+
+    button {
+      width: 100%; padding: 11px; background: #6366f1; color: #fff;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: opacity 0.15s; margin-top: 4px; margin-bottom: 18px;
+    }
+    button:hover { opacity: 0.88; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .divider { border-top: 1px solid #1e1e1e; margin-bottom: 16px; }
+
+    .result { display: none; }
+
+    .result-block {
+      background: #161616;
+      border: 1px solid #222;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .result-block:last-child { margin-bottom: 0; }
+    .result-label {
+      font-size: 10px; font-weight: 600; color: #333;
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px;
+    }
+    .result-text { font-size: 13px; color: #999; line-height: 1.6; }
+
+    ul.points { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    ul.points li { font-size: 12px; color: #777; padding-left: 14px; position: relative; }
+    ul.points li::before {
+      content: ''; position: absolute; left: 0; top: 7px;
+      width: 4px; height: 4px; border-radius: 50%; background: #6366f1; opacity: 0.7;
+    }
+
+    .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { font-size: 11px; padding: 2px 9px; background: #1e1b3a; color: #7c6fff; border-radius: 20px; border: 1px solid #2d2860; }
+
+    .sentiment { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+    .positive { background: #162a1e; color: #4ade80; border: 1px solid #1e3a28; }
+    .neutral  { background: #1e1e1e; color: #888; border: 1px solid #2a2a2a; }
+    .negative { background: #2a1414; color: #f87171; border: 1px solid #3a1e1e; }
+
+    .stats-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .meta { font-size: 11px; color: #333; margin-top: 8px; text-align: right; }
+    .error {
+      background: #2a1414; color: #f87171; border-radius: 8px;
+      padding: 10px 14px; font-size: 13px; margin-top: 16px; display: none;
+      border: 1px solid #3a1e1e;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>AI Text Summarizer</h1>
+    <p class="sub">Paste any text — get a clean summary instantly.</p>
+
+    <div class="row">
+      <div>
+        <label>Model</label>
+        <select id="model">
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+        </select>
+      </div>
+      <div>
+        <label>Style</label>
+        <select id="style">
+          <option value="concise">Concise</option>
+          <option value="detailed">Detailed</option>
+          <option value="bullets">Bullets only</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Text to Summarize</label>
+    <textarea id="text" placeholder="Paste your article, email, or any text here…"></textarea>
+
+    <button id="btn" onclick="summarize()">Summarize</button>
+    <div class="error" id="error"></div>
+
+    <div class="divider"></div>
+
+    <div class="result" id="result">
+      <div class="result-block" id="block-summary">
+        <div class="result-label">Summary</div>
+        <p class="result-text" id="out-summary"></p>
+      </div>
+      <div class="result-block">
+        <div class="result-label">Key Points</div>
+        <ul class="points" id="out-points"></ul>
+      </div>
+      <div class="result-block">
+        <div class="result-label">Topics</div>
+        <div class="tags" id="out-topics"></div>
+      </div>
+      <div class="result-block stats-row">
+        <div>
+          <div class="result-label">Sentiment</div>
+          <span class="sentiment" id="out-sentiment"></span>
+        </div>
+        <div style="text-align:right">
+          <div class="result-label">Stats</div>
+          <span style="font-size:12px;color:#555" id="out-stats"></span>
+        </div>
+      </div>
+      <div class="meta" id="out-meta"></div>
+    </div>
+  </div>
+
+  <script>
+    async function summarize() {
+      const text   = document.getElementById('text').value.trim();
+      const model  = document.getElementById('model').value;
+      const style  = document.getElementById('style').value;
+      const btn    = document.getElementById('btn');
+      const errBox = document.getElementById('error');
+
+      errBox.style.display = 'none';
+      document.getElementById('result').style.display = 'none';
+
+      if (!text || text.length < 30) { showError('Please enter at least a few sentences.'); return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Summarizing…';
+
+      try {
+        const res  = await fetch('/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, model, style })
+        });
+        const data = await res.json();
+        if (!data.success) { showError(data.error); return; }
+        render(data);
+      } catch (e) {
+        showError('Server error. Is the app running?');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Summarize';
+      }
+    }
+
+    function render(d) {
+      const r = d.data;
+
+      const summaryBlock = document.getElementById('block-summary');
+      if (r.summary) {
+        document.getElementById('out-summary').textContent = r.summary;
+        summaryBlock.style.display = 'block';
+      } else {
+        summaryBlock.style.display = 'none';
+      }
+
+      document.getElementById('out-points').innerHTML =
+        r.key_points.map(p => `<li>${esc(p)}</li>`).join('');
+
+      document.getElementById('out-topics').innerHTML =
+        r.topics.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+
+      const s = document.getElementById('out-sentiment');
+      s.textContent = r.sentiment;
+      s.className = 'sentiment ' + r.sentiment;
+
+      document.getElementById('out-stats').textContent  = `${r.word_count} words · ${r.reading_time}`;
+      document.getElementById('out-meta').textContent   = `${d.model_used} · ${(d.elapsed_ms/1000).toFixed(1)}s`;
+      document.getElementById('result').style.display   = 'block';
+    }
+
+    function showError(msg) {
+      const e = document.getElementById('error');
+      e.textContent = msg;
+      e.style.display = 'block';
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>
